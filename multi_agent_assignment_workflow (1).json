@@ -1,0 +1,265 @@
+{
+  "name": "Multi-Agent Systems Assignment: Supervisor-Worker Pattern Demo",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "trigger-start",
+      "name": "Starting trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [240, 400]
+    },
+    {
+      "parameters": {
+        "jsCode": "// ============================================================\n// MODULE 1: Single-Agent vs Multi-Agent Overview\n// ============================================================\n\nconst overview = {\n  title: \"Single-Agent vs Multi-Agent Systems\",\n  \n  singleAgent: {\n    definition: \"A single agent handles ALL tasks sequentially, one at a time.\",\n    characteristics: [\n      \"One LLM or process does everything\",\n      \"Simple to build and debug\",\n      \"Limited by context window size\",\n      \"Slower for complex, multi-step tasks\",\n      \"No parallelism — bottleneck on large jobs\"\n    ],\n    example: \"One AI reads a research paper, summarizes it, verifies facts, AND writes a report — all sequentially.\"\n  },\n  \n  multiAgent: {\n    definition: \"Multiple specialized agents collaborate, each handling a specific sub-task.\",\n    characteristics: [\n      \"Agents work in parallel or in coordinated sequence\",\n      \"Each agent has a focused role and toolset\",\n      \"Supervisor delegates and aggregates results\",\n      \"Scalable for complex, long-horizon tasks\",\n      \"Resilient — one agent failing doesn't break everything\"\n    ],\n    example: \"A Supervisor delegates: Agent A researches, Agent B summarizes, Agent C verifies — then Supervisor combines outputs.\"\n  },\n  \n  whyAgentsCollaborate: [\n    \"Division of expertise: each agent specializes (e.g., web search vs. code execution)\",\n    \"Parallelism: tasks run simultaneously, cutting total time\",\n    \"Context management: avoids overloading a single agent's context window\",\n    \"Reliability: failures are isolated — the system can retry only the failed agent\",\n    \"Modularity: easy to add, replace, or upgrade individual agents\"\n  ]\n};\n\nconsole.log(\"✅ Module 1 loaded: Overview of Single vs Multi-Agent\");\nreturn [{ json: { module: 1, data: overview } }];"
+      },
+      "id": "module-1-overview",
+      "name": " Overview & Why Agents Collaborate",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [480, 400]
+    },
+    {
+      "parameters": {
+        "jsCode": "// ============================================================\n// MODULE 2: Core Roles, Goals & Supervisor-Worker Pattern\n// ============================================================\n\nconst rolesAndPattern = {\n  title: \"Core Roles, Goals & Supervisor-Worker Pattern\",\n  \n  coreRoles: {\n    supervisor: {\n      name: \"Supervisor Agent\",\n      emoji: \"🧠\",\n      responsibilities: [\n        \"Receives the high-level task from the user\",\n        \"Breaks the task into smaller, assignable sub-tasks\",\n        \"Routes sub-tasks to the correct worker agents\",\n        \"Monitors worker progress and handles failures\",\n        \"Aggregates and synthesizes all worker outputs\",\n        \"Returns final consolidated result to the user\"\n      ],\n      tools: [\"task_planner\", \"message_router\", \"result_aggregator\", \"quality_checker\"],\n      goal: \"Orchestrate the workflow and ensure the final output is complete and coherent\"\n    },\n    \n    workerAgents: [\n      {\n        name: \"Research Agent\",\n        emoji: \"🔍\",\n        role: \"Gathers raw information from external sources\",\n        tools: [\"web_search\", \"arxiv_lookup\", \"wikipedia_fetch\", \"url_scraper\"],\n        goal: \"Return relevant, factual raw data on the assigned topic\",\n        input: \"Topic/query string\",\n        output: \"List of relevant facts, links, and raw content\"\n      },\n      {\n        name: \"Summarization Agent\",\n        emoji: \"📝\",\n        role: \"Condenses long-form content into concise summaries\",\n        tools: [\"llm_summarizer\", \"text_chunker\", \"key_point_extractor\"],\n        goal: \"Produce a clear, accurate summary of the research agent's output\",\n        input: \"Raw research content\",\n        output: \"Structured summary with key points and insights\"\n      },\n      {\n        name: \"Verification Agent\",\n        emoji: \"✅\",\n        role: \"Fact-checks claims against trusted sources\",\n        tools: [\"fact_check_api\", \"cross_reference_search\", \"confidence_scorer\"],\n        goal: \"Flag inaccuracies and assign confidence scores to each claim\",\n        input: \"Summary with claims\",\n        output: \"Verified summary with confidence scores and corrections\"\n      }\n    ]\n  },\n  \n  supervisorWorkerPattern: {\n    description: \"The Supervisor-Worker pattern is the most common multi-agent architecture.\",\n    flow: [\n      \"1. User sends a complex task to the Supervisor\",\n      \"2. Supervisor decomposes the task into N sub-tasks\",\n      \"3. Supervisor assigns each sub-task to a specialized Worker\",\n      \"4. Workers execute their tasks (possibly in parallel)\",\n      \"5. Workers return results to the Supervisor\",\n      \"6. Supervisor validates, aggregates, and synthesizes results\",\n      \"7. Supervisor returns the final answer to the User\"\n    ],\n    keyPrinciples: [\n      \"Single point of coordination: only the Supervisor talks to the User\",\n      \"Workers are stateless: they don't know about each other\",\n      \"Supervisor maintains the shared state and context\",\n      \"Delegation is explicit: Supervisor sends structured task messages\"\n    ]\n  }\n};\n\nconsole.log(\"✅ Module 2 loaded: Roles, Goals & Supervisor-Worker Pattern\");\nreturn [{ json: { module: 2, data: rolesAndPattern } }];"
+      },
+      "id": "module-2-roles",
+      "name": "Core Roles, Goals & Supervisor-Worker Pattern",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [720, 400]
+    },
+    {
+      "parameters": {
+        "jsCode": "// ============================================================\n// MODULE 3: Agent Messaging Flow & Delegation Process\n// ============================================================\n\nconst messagingAndDelegation = {\n  title: \"Agent Messaging Flow & Delegation Process\",\n  \n  messagingFlow: {\n    description: \"Agents communicate via structured messages — think of them like API calls between services.\",\n    \n    messageSchema: {\n      task_id: \"Unique identifier for tracking\",\n      from: \"Sender agent name\",\n      to: \"Receiver agent name\",\n      task_type: \"What kind of task (research/summarize/verify)\",\n      payload: \"The actual data or instructions\",\n      priority: \"low | medium | high\",\n      deadline_ms: \"Optional timeout in milliseconds\",\n      callback: \"Where to send the result when done\"\n    },\n    \n    exampleMessages: [\n      {\n        step: \"Step 1: User → Supervisor\",\n        message: {\n          task_id: \"task_001\",\n          from: \"user\",\n          to: \"supervisor\",\n          task_type: \"complex_research\",\n          payload: { query: \"Explain quantum computing advances in 2024\" },\n          priority: \"high\"\n        }\n      },\n      {\n        step: \"Step 2a: Supervisor → Research Agent\",\n        message: {\n          task_id: \"task_001_research\",\n          from: \"supervisor\",\n          to: \"research_agent\",\n          task_type: \"web_research\",\n          payload: { query: \"Quantum computing breakthroughs 2024\", max_sources: 5 },\n          callback: \"supervisor/results/research\"\n        }\n      },\n      {\n        step: \"Step 3: Research Agent → Supervisor (result)\",\n        message: {\n          task_id: \"task_001_research\",\n          from: \"research_agent\",\n          to: \"supervisor\",\n          task_type: \"research_result\",\n          payload: {\n            sources: [\"arxiv.org/...\", \"nature.com/...\"],\n            raw_content: \"[raw text from sources...]\",\n            confidence: 0.92\n          }\n        }\n      },\n      {\n        step: \"Step 4: Supervisor → Summarization Agent\",\n        message: {\n          task_id: \"task_001_summary\",\n          from: \"supervisor\",\n          to: \"summarization_agent\",\n          task_type: \"summarize\",\n          payload: { content: \"[raw research content]\", max_words: 300 },\n          callback: \"supervisor/results/summary\"\n        }\n      },\n      {\n        step: \"Step 5: Supervisor → Verification Agent\",\n        message: {\n          task_id: \"task_001_verify\",\n          from: \"supervisor\",\n          to: \"verification_agent\",\n          task_type: \"fact_check\",\n          payload: { summary: \"[summarized content]\", claims_to_verify: [] },\n          callback: \"supervisor/results/verification\"\n        }\n      },\n      {\n        step: \"Step 6: Supervisor → User (final)\",\n        message: {\n          task_id: \"task_001\",\n          from: \"supervisor\",\n          to: \"user\",\n          task_type: \"final_result\",\n          payload: {\n            summary: \"[verified, summarized answer]\",\n            sources: [\"...\"],\n            confidence_score: 0.94,\n            processing_time_ms: 4200\n          }\n        }\n      }\n    ]\n  },\n  \n  delegationProcess: {\n    steps: [\n      { step: 1, action: \"RECEIVE\", description: \"Supervisor receives complex task from user\" },\n      { step: 2, action: \"ANALYZE\", description: \"Supervisor identifies what sub-tasks are needed\" },\n      { step: 3, action: \"PLAN\", description: \"Supervisor creates an execution plan (sequential or parallel)\" },\n      { step: 4, action: \"DELEGATE\", description: \"Supervisor sends structured task messages to workers\" },\n      { step: 5, action: \"MONITOR\", description: \"Supervisor tracks which tasks are complete/pending/failed\" },\n      { step: 6, action: \"COLLECT\", description: \"Supervisor gathers all worker results\" },\n      { step: 7, action: \"SYNTHESIZE\", description: \"Supervisor combines results into a coherent response\" },\n      { step: 8, action: \"RETURN\", description: \"Supervisor sends final result to user\" }\n    ]\n  }\n};\n\nconsole.log(\"✅ Module 3 loaded: Messaging Flow & Delegation\");\nreturn [{ json: { module: 3, data: messagingAndDelegation } }];"
+      },
+      "id": "module-3-messaging",
+      "name": "Messaging Flow & Delegation Process",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [960, 400]
+    },
+    {
+      "parameters": {
+        "jsCode": "// ============================================================\n// MODULE 4: Tools Used in Agent Systems\n// ============================================================\n\nconst agentTools = {\n  title: \"Tools Used in Agent Systems\",\n  \n  definition: \"Tools are external functions or APIs that agents can CALL to take actions beyond just generating text.\",\n  \n  toolCategories: [\n    {\n      category: \"Information Retrieval\",\n      emoji: \"🔎\",\n      tools: [\n        { name: \"web_search\", description: \"Search the internet for current information\", example: \"web_search('quantum computing 2024')\" },\n        { name: \"database_query\", description: \"Query structured data from SQL/NoSQL databases\", example: \"db_query('SELECT * FROM papers WHERE year=2024')\" },\n        { name: \"document_reader\", description: \"Parse and extract text from PDFs, docs, etc.\", example: \"read_pdf('research_paper.pdf')\" }\n      ]\n    },\n    {\n      category: \"Code Execution\",\n      emoji: \"💻\",\n      tools: [\n        { name: \"python_executor\", description: \"Run Python code and return results\", example: \"execute_python('import math; print(math.pi)')\" },\n        { name: \"bash_runner\", description: \"Execute shell commands\", example: \"run_bash('ls -la /data')\" },\n        { name: \"github_api\", description: \"Create repos, push code, open PRs\", example: \"github.create_file('README.md', content)\" }\n      ]\n    },\n    {\n      category: \"Data Processing\",\n      emoji: \"📊\",\n      tools: [\n        { name: \"text_chunker\", description: \"Split large text into manageable pieces\", example: \"chunk_text(long_doc, max_tokens=1000)\" },\n        { name: \"json_parser\", description: \"Extract and validate structured data\", example: \"parse_json(response, schema=MySchema)\" },\n        { name: \"csv_analyzer\", description: \"Analyze and summarize CSV data\", example: \"analyze_csv('data.csv', columns=['revenue'])\" }\n      ]\n    },\n    {\n      category: \"Communication & Output\",\n      emoji: \"📤\",\n      tools: [\n        { name: \"email_sender\", description: \"Send email notifications\", example: \"send_email(to='user@co.com', body=report)\" },\n        { name: \"slack_notifier\", description: \"Post messages to Slack channels\", example: \"slack_post('#results', summary)\" },\n        { name: \"report_generator\", description: \"Format output as structured reports\", example: \"generate_report(data, template='academic')\" }\n      ]\n    },\n    {\n      category: \"Verification & Quality\",\n      emoji: \"✔️\",\n      tools: [\n        { name: \"fact_checker\", description: \"Cross-reference claims against trusted sources\", example: \"fact_check('claim text', sources=['snopes','wikipedia'])\" },\n        { name: \"confidence_scorer\", description: \"Score how confident we are in a result\", example: \"score_confidence(response, reference_data)\" },\n        { name: \"plagiarism_check\", description: \"Detect content overlap with existing sources\", example: \"check_plagiarism(text, threshold=0.2)\" }\n      ]\n    }\n  ],\n  \n  howToolsWork: [\n    \"1. Agent decides it needs a tool (e.g., 'I need to search the web')\",\n    \"2. Agent generates a structured tool call: { tool: 'web_search', args: { query: '...' } }\",\n    \"3. Framework executes the tool and returns the result\",\n    \"4. Agent receives the result and continues reasoning\",\n    \"5. Agent may chain multiple tool calls to complete a task\"\n  ]\n};\n\nconsole.log(\"✅ Module 4 loaded: Agent Tools\");\nreturn [{ json: { module: 4, data: agentTools } }];"
+      },
+      "id": "module-4-tools",
+      "name": "Tools in Agent Systems",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1200, 400]
+    },
+    {
+      "parameters": {
+        "jsCode": "// ============================================================\n// MODULE 5: LIVE SIMULATION — Supervisor Assigns Tasks\n// This node simulates the Supervisor Agent decomposing a task\n// ============================================================\n\nconst userQuery = \"Research recent advances in quantum computing and produce a verified summary.\";\n\n// Supervisor Agent Logic\nconst supervisorAgent = {\n  name: \"Supervisor Agent\",\n  receivedTask: userQuery,\n  taskId: \"task_\" + Date.now(),\n  \n  analysis: \"This task requires: (1) web research on quantum computing, (2) summarization of findings, (3) fact verification.\",\n  \n  executionPlan: {\n    type: \"sequential_with_handoff\",\n    reason: \"Summarization needs research output first; verification needs summary first.\",\n    steps: [\n      { order: 1, agent: \"Research Agent\", canParallelize: false, dependsOn: [] },\n      { order: 2, agent: \"Summarization Agent\", canParallelize: false, dependsOn: [\"Research Agent\"] },\n      { order: 3, agent: \"Verification Agent\", canParallelize: false, dependsOn: [\"Summarization Agent\"] }\n    ]\n  },\n  \n  delegatedTasks: [\n    {\n      taskId: \"task_research_001\",\n      assignedTo: \"Research Agent\",\n      status: \"DISPATCHED\",\n      instructions: \"Search for quantum computing breakthroughs in 2024. Find at least 3 credible sources. Return raw content and source URLs.\",\n      tools: [\"web_search\", \"arxiv_lookup\"],\n      priority: \"high\",\n      timeoutMs: 15000\n    },\n    {\n      taskId: \"task_summary_001\",\n      assignedTo: \"Summarization Agent\",\n      status: \"WAITING — depends on Research Agent\",\n      instructions: \"Summarize the research output in under 300 words. Extract 5 key bullet points. Preserve all technical terms.\",\n      tools: [\"llm_summarizer\", \"key_point_extractor\"],\n      priority: \"medium\",\n      timeoutMs: 10000\n    },\n    {\n      taskId: \"task_verify_001\",\n      assignedTo: \"Verification Agent\",\n      status: \"WAITING — depends on Summarization Agent\",\n      instructions: \"Fact-check each claim in the summary. Score confidence 0-1. Flag any unverified claims with [UNVERIFIED].\",\n      tools: [\"fact_check_api\", \"confidence_scorer\", \"cross_reference_search\"],\n      priority: \"high\",\n      timeoutMs: 12000\n    }\n  ],\n  \n  supervisorState: {\n    totalTasks: 3,\n    completed: 0,\n    pending: 3,\n    failed: 0\n  }\n};\n\nconsole.log(\"🧠 Supervisor has decomposed and delegated the task!\");\nconsole.log(`📋 Task ID: ${supervisorAgent.taskId}`);\nconsole.log(`📦 Sub-tasks dispatched: ${supervisorAgent.delegatedTasks.length}`);\n\nreturn [{ json: { module: 5, data: supervisorAgent } }];"
+      },
+      "id": "module-5-supervisor",
+      "name": "Supervisor Agent (Live Simulation)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1440, 200]
+    },
+    {
+      "parameters": {
+        "jsCode": "// ============================================================\n// MODULE 6A: Research Agent Worker Simulation\n// ============================================================\n\nconst researchAgent = {\n  agentName: \"Research Agent\",\n  taskId: \"task_research_001\",\n  status: \"EXECUTING\",\n  \n  toolCalls: [\n    {\n      tool: \"web_search\",\n      args: { query: \"quantum computing breakthroughs 2024\", max_results: 5 },\n      result: \"Found 5 results from Nature, IBM Research, Google AI, arXiv, MIT Tech Review\"\n    },\n    {\n      tool: \"arxiv_lookup\",\n      args: { query: \"quantum error correction 2024\", max_papers: 3 },\n      result: \"Found 3 relevant papers on surface codes and fault-tolerant qubits\"\n    },\n    {\n      tool: \"url_scraper\",\n      args: { urls: [\"https://research.ibm.com/blog/quantum-2024\"] },\n      result: \"Extracted 1200 words from IBM Research blog\"\n    }\n  ],\n  \n  output: {\n    status: \"COMPLETE\",\n    sources: [\n      { title: \"IBM Quantum Eagle Processor\", url: \"research.ibm.com\", credibility: 0.97 },\n      { title: \"Google Willow Quantum Chip\", url: \"ai.google\", credibility: 0.98 },\n      { title: \"Microsoft Topological Qubits\", url: \"microsoft.com/research\", credibility: 0.96 },\n      { title: \"arXiv: Surface Code QEC 2024\", url: \"arxiv.org\", credibility: 0.95 }\n    ],\n    rawContent: \"[SIMULATED] In 2024, quantum computing saw three major milestones: (1) Google's Willow chip demonstrated 105-qubit computation with reduced error rates. (2) IBM expanded its quantum network to over 100 quantum computers accessible via cloud. (3) Microsoft announced a breakthrough in topological qubits, potentially enabling more stable quantum computation. Error correction remains the key challenge, with surface codes showing promising results in recent peer-reviewed research.\",\n    wordCount: 312,\n    processingTimeMs: 3200,\n    toolCallsMade: 3\n  },\n  \n  messageToSupervisor: {\n    from: \"research_agent\",\n    to: \"supervisor\",\n    taskId: \"task_research_001\",\n    status: \"SUCCESS\",\n    nextAgent: \"summarization_agent\"\n  }\n};\n\nconsole.log(\"🔍 Research Agent completed! Found\", researchAgent.output.sources.length, \"sources.\");\nreturn [{ json: { module: \"6A\", data: researchAgent } }];"
+      },
+      "id": "module-6a-research",
+      "name": "Research Worker Agent",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1680, 100]
+    },
+    {
+      "parameters": {
+        "jsCode": "// ============================================================\n// MODULE 6B: Summarization Agent Worker Simulation\n// ============================================================\n\nconst summarizationAgent = {\n  agentName: \"Summarization Agent\",\n  taskId: \"task_summary_001\",\n  status: \"EXECUTING\",\n  receivedFrom: \"supervisor (forwarding research_agent output)\",\n  \n  toolCalls: [\n    {\n      tool: \"text_chunker\",\n      args: { content: \"[raw research content 312 words]\", max_chunk_tokens: 150 },\n      result: \"Split into 3 processable chunks\"\n    },\n    {\n      tool: \"llm_summarizer\",\n      args: { chunks: 3, style: \"technical\", max_output_words: 250 },\n      result: \"Generated condensed summary\"\n    },\n    {\n      tool: \"key_point_extractor\",\n      args: { content: \"[summary]\", num_points: 5 },\n      result: \"Extracted 5 key bullet points\"\n    }\n  ],\n  \n  output: {\n    status: \"COMPLETE\",\n    summary: \"[SIMULATED SUMMARY] Quantum computing in 2024 achieved significant milestones across hardware and error correction. Google's Willow chip (105 qubits) showed reduced error rates at scale. IBM expanded cloud-accessible quantum systems to 100+ machines globally. Microsoft's topological qubit research may unlock more stable quantum states. Surface code error correction emerged as the leading fault-tolerance approach per peer-reviewed literature.\",\n    keyPoints: [\n      \"Google Willow chip: 105-qubit computation with improved error rates\",\n      \"IBM Quantum Network: 100+ cloud-accessible quantum computers\",\n      \"Microsoft topological qubits: stability breakthrough announced\",\n      \"Surface code QEC: leading error correction approach in 2024\",\n      \"Fault tolerance remains the #1 challenge for practical quantum computing\"\n    ],\n    wordCount: 89,\n    compressionRatio: \"3.5x (from 312 to 89 words)\",\n    processingTimeMs: 2100,\n    toolCallsMade: 3\n  },\n  \n  messageToSupervisor: {\n    from: \"summarization_agent\",\n    to: \"supervisor\",\n    taskId: \"task_summary_001\",\n    status: \"SUCCESS\",\n    nextAgent: \"verification_agent\"\n  }\n};\n\nconsole.log(\"📝 Summarization Agent completed! Compressed to\", summarizationAgent.output.wordCount, \"words.\");\nreturn [{ json: { module: \"6B\", data: summarizationAgent } }];"
+      },
+      "id": "module-6b-summarize",
+      "name": "Summarization Worker Agent",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1680, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// ============================================================\n// MODULE 6C: Verification Agent Worker Simulation\n// ============================================================\n\nconst verificationAgent = {\n  agentName: \"Verification Agent\",\n  taskId: \"task_verify_001\",\n  status: \"EXECUTING\",\n  receivedFrom: \"supervisor (forwarding summarization_agent output)\",\n  \n  toolCalls: [\n    {\n      tool: \"fact_check_api\",\n      args: { claims: [\"Google Willow = 105 qubits\", \"IBM = 100+ quantum computers\", \"Microsoft topological qubits\"] },\n      result: \"All 3 claims verified against primary sources\"\n    },\n    {\n      tool: \"cross_reference_search\",\n      args: { claim: \"Surface codes leading QEC approach\", sources: [\"arxiv\", \"nature\", \"ieee\"] },\n      result: \"Confirmed by 12 peer-reviewed papers (2024)\"\n    },\n    {\n      tool: \"confidence_scorer\",\n      args: { verifiedClaims: 4, totalClaims: 5, sourceQuality: \"high\" },\n      result: \"Overall confidence: 0.94\"\n    }\n  ],\n  \n  output: {\n    status: \"COMPLETE\",\n    verifiedClaims: [\n      { claim: \"Google Willow chip: 105-qubit computation with improved error rates\", verified: true, confidence: 0.98, source: \"Google AI Blog\" },\n      { claim: \"IBM Quantum Network: 100+ cloud-accessible quantum computers\", verified: true, confidence: 0.97, source: \"IBM Research\" },\n      { claim: \"Microsoft topological qubits: stability breakthrough\", verified: true, confidence: 0.91, source: \"Microsoft Research\" },\n      { claim: \"Surface code QEC: leading error correction approach in 2024\", verified: true, confidence: 0.96, source: \"arXiv + Nature (12 papers)\" },\n      { claim: \"Fault tolerance is the #1 challenge\", verified: true, confidence: 0.93, source: \"Multiple industry reports\" }\n    ],\n    overallConfidence: 0.95,\n    flaggedClaims: [],\n    processingTimeMs: 2800,\n    toolCallsMade: 3\n  },\n  \n  messageToSupervisor: {\n    from: \"verification_agent\",\n    to: \"supervisor\",\n    taskId: \"task_verify_001\",\n    status: \"SUCCESS\",\n    allClaimsVerified: true,\n    overallConfidence: 0.95\n  }\n};\n\nconsole.log(\"✅ Verification Agent completed! Confidence score:\", verificationAgent.output.overallConfidence);\nreturn [{ json: { module: \"6C\", data: verificationAgent } }];"
+      },
+      "id": "module-6c-verify",
+      "name": "Verification Worker Agent",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1680, 500]
+    },
+    {
+      "parameters": {
+        "jsCode": "// ============================================================\n// MODULE 7: Supervisor Aggregates All Results\n// ============================================================\n\nconst aggregatedResult = {\n  title: \"Supervisor Final Aggregation\",\n  taskId: \"task_001\",\n  \n  allWorkerResultsReceived: true,\n  supervisorState: {\n    totalTasks: 3,\n    completed: 3,\n    pending: 0,\n    failed: 0\n  },\n  \n  aggregationSteps: [\n    { step: 1, action: \"Collected Research Agent output (4 sources, 312 words raw)\" },\n    { step: 2, action: \"Collected Summarization Agent output (89 words, 5 key points)\" },\n    { step: 3, action: \"Collected Verification Agent output (5/5 claims verified, confidence 0.95)\" },\n    { step: 4, action: \"Merged sources list with verified claims\" },\n    { step: 5, action: \"Applied confidence scores to final output\" },\n    { step: 6, action: \"Formatted final user-facing response\" }\n  ],\n  \n  finalResult: {\n    userQuery: \"Research recent advances in quantum computing and produce a verified summary.\",\n    \n    verifiedSummary: \"[FINAL OUTPUT] Quantum computing achieved major milestones in 2024. Google's Willow chip reached 105-qubit computation with significantly reduced error rates. IBM expanded its Quantum Network to over 100 cloud-accessible systems worldwide. Microsoft made progress on topological qubits, a potentially more stable qubit architecture. Surface code error correction emerged as the most validated fault-tolerance approach, confirmed by 12+ peer-reviewed studies. Fault tolerance remains the defining challenge for practical quantum computing at scale.\",\n    \n    keyPoints: [\n      \"✅ Google Willow: 105 qubits, improved error rates (confidence: 0.98)\",\n      \"✅ IBM Quantum Network: 100+ systems globally (confidence: 0.97)\",\n      \"✅ Microsoft: topological qubit stability advances (confidence: 0.91)\",\n      \"✅ Surface code QEC: leading approach per 12+ papers (confidence: 0.96)\",\n      \"✅ Fault tolerance: #1 challenge for practical quantum computing (confidence: 0.93)\"\n    ],\n    \n    sources: [\n      \"research.ibm.com — IBM Quantum Eagle Processor\",\n      \"ai.google — Google Willow Quantum Chip\",\n      \"microsoft.com/research — Topological Qubits\",\n      \"arxiv.org — Surface Code QEC 2024\"\n    ],\n    \n    qualityMetrics: {\n      overallConfidence: 0.95,\n      sourcesUsed: 4,\n      claimsVerified: 5,\n      claimsFlagged: 0,\n      totalProcessingTimeMs: 8100,\n      totalToolCallsMade: 9,\n      agentsInvolved: [\"supervisor\", \"research_agent\", \"summarization_agent\", \"verification_agent\"]\n    }\n  }\n};\n\nconsole.log(\"🎯 Supervisor has aggregated all results!\");\nconsole.log(`📊 Final confidence: ${aggregatedResult.finalResult.qualityMetrics.overallConfidence}`);\nconsole.log(`⏱️ Total processing time: ${aggregatedResult.finalResult.qualityMetrics.totalProcessingTimeMs}ms`);\nconsole.log(`🛠️ Total tool calls made: ${aggregatedResult.finalResult.qualityMetrics.totalToolCallsMade}`);\n\nreturn [{ json: { module: 7, data: aggregatedResult } }];"
+      },
+      "id": "module-7-aggregation",
+      "name": "Supervisor Aggregates Results",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1920, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// ============================================================\n// MODULE 8: Coordination Diagram Walkthrough\n// ============================================================\n\nconst coordinationDiagram = {\n  title: \"Coordination Diagram Walkthrough\",\n  \n  diagram: `\n  ┌──────────────────────────────────────────────────────────┐\n  │              MULTI-AGENT COORDINATION DIAGRAM            │\n  └──────────────────────────────────────────────────────────┘\n  \n  👤 USER\n    │\n    │ 1. \"Research quantum computing advances\"\n    ▼\n  ┌─────────────────┐\n  │  🧠 SUPERVISOR  │  ← Orchestrator / Planner\n  │   AGENT         │    (Decomposes & Delegates)\n  └────────┬────────┘\n           │\n    ┌──────┴──────┐──────────────┐\n    │             │              │\n    ▼             ▼              ▼\n  ┌──────┐    ┌──────┐    ┌──────────┐\n  │ 🔍  │    │ 📝  │    │    ✅    │\n  │RSRCH│    │SUMRY│    │  VERIFY  │\n  │AGNT │    │AGNT │    │   AGNT   │\n  └──┬──┘    └──┬──┘    └────┬─────┘\n     │  (seq)   │  (seq)     │\n     └──────────┤            │\n                └────────────┘\n                      │\n                      ▼ (all results)\n              ┌───────────────┐\n              │  🧠 SUPERVISOR│\n              │  (Aggregates) │\n              └───────┬───────┘\n                      │\n                      ▼\n                    👤 USER\n                (Final Answer)\n  `,\n  \n  diagramExplanation: [\n    {\n      element: \"👤 USER → 🧠 SUPERVISOR\",\n      meaning: \"User sends one high-level task. The user only interacts with the Supervisor.\"\n    },\n    {\n      element: \"🧠 SUPERVISOR → Workers (3 arrows)\",\n      meaning: \"Supervisor breaks the task and routes sub-tasks to specialized agents.\"\n    },\n    {\n      element: \"🔍 Research → 📝 Summary (sequential)\",\n      meaning: \"Research must complete before Summarization starts — data dependency.\"\n    },\n    {\n      element: \"📝 Summary → ✅ Verify (sequential)\",\n      meaning: \"Verification needs the summary — another sequential dependency.\"\n    },\n    {\n      element: \"Workers → 🧠 SUPERVISOR (results)\",\n      meaning: \"All workers return their results to the Supervisor, not to each other.\"\n    },\n    {\n      element: \"🧠 SUPERVISOR → 👤 USER (final)\",\n      meaning: \"Supervisor synthesizes everything and returns ONE clean answer to the user.\"\n    }\n  ],\n  \n  parallelAlternative: {\n    description: \"For tasks WITHOUT dependencies, agents can run in parallel:\",\n    example: \"If the task was 'research 3 separate topics', all 3 Research Agents could run simultaneously.\",\n    benefit: \"3x speed improvement for independent parallel tasks\"\n  }\n};\n\nconsole.log(\"📊 Module 8 loaded: Coordination Diagram Walkthrough\");\nreturn [{ json: { module: 8, data: coordinationDiagram } }];"
+      },
+      "id": "module-8-diagram",
+      "name": "Coordination Diagram Walkthrough",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2160, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// ============================================================\n// MODULE 9: Hands-On Exercise\n// ============================================================\n\nconst handsOnExercise = {\n  title: \"Hands-On Exercise: Build Your Own Multi-Agent System\",\n  \n  overview: \"Build a 3-agent system that researches a topic, summarizes it, and posts a Slack notification.\",\n  \n  exercise: {\n    difficulty: \"Beginner\",\n    estimatedTime: \"45-60 minutes\",\n    tools: [\"n8n (free tier)\", \"OpenAI API or Claude API\", \"Slack Webhook (free)\"],\n    \n    task: \"Build a multi-agent workflow that: (1) takes a user's topic as input, (2) has a Research Agent search the web, (3) has a Summarization Agent condense the findings, (4) posts the summary to a Slack channel.\"\n  },\n  \n  steps: [\n    {\n      step: 1,\n      title: \"Set Up n8n\",\n      instructions: [\n        \"Go to https://n8n.io and create a free account\",\n        \"Start a new workflow\",\n        \"Add a 'Manual Trigger' node as your starting point\"\n      ]\n    },\n    {\n      step: 2,\n      title: \"Build the Supervisor Node (Code Node)\",\n      instructions: [\n        \"Add a 'Code' node after the trigger\",\n        \"Name it 'Supervisor Agent'\",\n        \"Write logic to: receive the user's query, create task objects for each worker, return the task plan\"\n      ],\n      codeTemplate: \"const userQuery = $input.first().json.query;\\nconst tasks = [\\n  { agent: 'research', query: userQuery },\\n  { agent: 'summarize', dependsOn: 'research' }\\n];\\nreturn [{ json: { tasks, userQuery } }];\"\n    },\n    {\n      step: 3,\n      title: \"Build the Research Agent (HTTP Request + AI Node)\",\n      instructions: [\n        \"Add an 'HTTP Request' node — connect to SerpAPI or Brave Search API\",\n        \"Add an 'OpenAI' or 'Claude' node to extract key facts from the search results\",\n        \"Name this chain 'Research Agent'\"\n      ]\n    },\n    {\n      step: 4,\n      title: \"Build the Summarization Agent (AI Node)\",\n      instructions: [\n        \"Add another AI node after the Research Agent\",\n        \"System prompt: 'You are a summarization agent. Summarize the input in under 200 words with 3 key bullet points.'\",\n        \"Pass the research output as user message\"\n      ]\n    },\n    {\n      step: 5,\n      title: \"Post Results (Slack or Email)\",\n      instructions: [\n        \"Add a 'Slack' node (or 'Send Email' node)\",\n        \"Configure your Slack webhook\",\n        \"Format the summary nicely and send it\"\n      ]\n    },\n    {\n      step: 6,\n      title: \"Test & Observe\",\n      instructions: [\n        \"Run the workflow manually with a test query\",\n        \"Use n8n's execution log to see each node's input and output\",\n        \"Observe how data flows from Supervisor → Research → Summary → Notification\",\n        \"Bonus: Add error handling — what happens if the Research Agent fails?\"\n      ]\n    }\n  ],\n  \n  bonusChallenges: [\n    \"Add a Verification Agent that cross-checks the summary against a second search\",\n    \"Make Research and a 'Competitor Research' agent run in PARALLEL using n8n's parallel branches\",\n    \"Add a 'Quality Gate' — if confidence < 0.7, loop back and research again\",\n    \"Log all agent messages to a Google Sheet for inspection\"\n  ],\n  \n  githubTemplate: {\n    description: \"A starter template is available on GitHub:\",\n    url: \"https://github.com/example/multi-agent-n8n-starter\",\n    contents: [\n      \"workflow.json — importable n8n workflow\",\n      \"agents/supervisor.js — Supervisor Agent logic\",\n      \"agents/research.js — Research Agent prompt\",\n      \"agents/summarize.js — Summarization Agent prompt\",\n      \"agents/verify.js — Verification Agent logic\",\n      \"README.md — Setup and walkthrough guide\"\n    ]\n  }\n};\n\nconsole.log(\"🎓 Module 9 loaded: Hands-On Exercise\");\nconsole.log(`📋 Steps: ${handsOnExercise.steps.length}`);\nconsole.log(`🏆 Bonus challenges: ${handsOnExercise.bonusChallenges.length}`);\nreturn [{ json: { module: 9, data: handsOnExercise } }];"
+      },
+      "id": "module-9-exercise",
+      "name": "Hands-On Exercise",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2400, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// ============================================================\n// MODULE 10: Final Report — Compile All Modules\n// ============================================================\n\nconst finalReport = {\n  assignmentTitle: \"Single-Agent vs Multi-Agent Systems: A Complete Guide\",\n  author: \"Generated by Multi-Agent n8n Workflow\",\n  generatedAt: new Date().toISOString(),\n  \n  tableOfContents: [\n    \"Module 1: Overview — Single-Agent vs Multi-Agent\",\n    \"Module 2: Core Roles, Goals & Supervisor-Worker Pattern\",\n    \"Module 3: Agent Messaging Flow & Delegation Process\",\n    \"Module 4: Tools Used in Agent Systems\",\n    \"Module 5: Supervisor Agent Live Simulation\",\n    \"Module 6A: Research Worker Agent\",\n    \"Module 6B: Summarization Worker Agent\",\n    \"Module 6C: Verification Worker Agent\",\n    \"Module 7: Result Aggregation by Supervisor\",\n    \"Module 8: Coordination Diagram Walkthrough\",\n    \"Module 9: Hands-On Exercise\"\n  ],\n  \n  keyTakeaways: [\n    \"Single-agent systems are simple but don't scale to complex, multi-step tasks\",\n    \"Multi-agent systems divide work by specialization, enabling parallelism and resilience\",\n    \"The Supervisor-Worker pattern keeps coordination centralized and workers stateless\",\n    \"Structured messages (with task_id, from, to, payload) are the backbone of agent communication\",\n    \"Tools extend agents beyond text — enabling web search, code execution, APIs, and more\",\n    \"Sequential dependencies (A → B → C) are common; parallel execution speeds up independent tasks\",\n    \"Confidence scoring and verification agents are critical for output quality\"\n  ],\n  \n  collaborativeWorkflowSummary: {\n    title: \"Quantum Computing Research Example — Workflow Summary\",\n    totalAgents: 4,\n    totalToolCalls: 9,\n    totalProcessingTimeMs: 8100,\n    outputQualityScore: 0.95,\n    \n    agentContributions: {\n      supervisor: \"Orchestrated workflow, delegated 3 tasks, aggregated results\",\n      researchAgent: \"Fetched 4 sources, extracted 312 words of raw content\",\n      summarizationAgent: \"Compressed to 89 words with 5 key points (3.5x compression)\",\n      verificationAgent: \"Verified 5/5 claims, scored confidence at 0.95\"\n    },\n    \n    messageFlowCount: 6,\n    finalOutputDelivered: true\n  },\n  \n  status: \"✅ ASSIGNMENT COMPLETE — All 10 modules executed successfully!\"\n};\n\nconsole.log(\"\\n\" + \"=\" .repeat(60));\nconsole.log(\"🎉 MULTI-AGENT ASSIGNMENT WORKFLOW COMPLETE!\");\nconsole.log(\"=\" .repeat(60));\nconsole.log(`📚 Modules covered: ${finalReport.tableOfContents.length}`);\nconsole.log(`🤖 Agents simulated: ${finalReport.collaborativeWorkflowSummary.totalAgents}`);\nconsole.log(`🛠️ Tool calls made: ${finalReport.collaborativeWorkflowSummary.totalToolCalls}`);\nconsole.log(`✅ Quality score: ${finalReport.collaborativeWorkflowSummary.outputQualityScore}`);\nconsole.log(\"=\" .repeat(60));\n\nreturn [{ json: { module: 10, finalReport } }];"
+      },
+      "id": "module-10-final",
+      "name": "Final Report & Key Takeaways",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2640, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// ============================================================\n// COLLECT ALL WORKER OUTPUTS\n// Replaces the broken Merge node — gathers all items passed\n// through the sequential chain and bundles them together.\n// ============================================================\n\nconst allItems = $input.all();\n\nconst workerResults = allItems.map(item => item.json);\n\nconst summary = {\n  collectedAt: new Date().toISOString(),\n  totalWorkers: workerResults.length,\n  workers: workerResults.map(r => ({\n    module: r.module,\n    agentName: r.data && r.data.agentName ? r.data.agentName : 'unknown',\n    status: r.data && r.data.output ? r.data.output.status : 'N/A'\n  })),\n  allResults: workerResults\n};\n\nconsole.log(`✅ Collected ${summary.totalWorkers} worker result(s) — passing to Supervisor aggregation.`);\n\nreturn [{ json: { module: 'merge', data: summary } }];"
+      },
+      "id": "merge-workers",
+      "name": "Collect Worker Outputs",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1920, 100]
+    },
+    {
+      "parameters": {
+        "content": "## 🧠 SUPERVISOR AGENT\n\nReceives the user task, decomposes it into sub-tasks, and routes to workers. Aggregates all results at the end.",
+        "height": 120,
+        "width": 260
+      },
+      "id": "sticky-supervisor",
+      "name": "Sticky Note - Supervisor",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [1380, 80]
+    },
+    {
+      "parameters": {
+        "content": "## 👷 WORKER AGENTS\n\nThree specialized agents, each with dedicated tools:\n- 🔍 Research\n- 📝 Summarize  \n- ✅ Verify\n\nThey run sequentially here due to data dependencies.",
+        "height": 200,
+        "width": 200
+      },
+      "id": "sticky-workers",
+      "name": "Sticky Note - Workers",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [1620, 560]
+    },
+    {
+      "parameters": {
+        "content": "## 📚 ASSIGNMENT MODULES\n\nThis workflow teaches:\n1. Single vs Multi-Agent overview\n2. Roles & Supervisor-Worker pattern\n3. Messaging & delegation\n4. Tools in agent systems\n5. Live simulation (modules 5-7)\n6. Coordination diagram\n7. Hands-on exercise",
+        "height": 240,
+        "width": 250
+      },
+      "id": "sticky-overview",
+      "name": "Sticky Note - Assignment Overview",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [240, 560]
+    }
+  ],
+  "connections": {
+    "🚀 Start Assignment": {
+      "main": [
+        [{ "node": "📘 Module 1: Overview & Why Agents Collaborate", "type": "main", "index": 0 }]
+      ]
+    },
+    "📘 Module 1: Overview & Why Agents Collaborate": {
+      "main": [
+        [{ "node": "👥 Module 2: Core Roles, Goals & Supervisor-Worker Pattern", "type": "main", "index": 0 }]
+      ]
+    },
+    "👥 Module 2: Core Roles, Goals & Supervisor-Worker Pattern": {
+      "main": [
+        [{ "node": "💬 Module 3: Messaging Flow & Delegation Process", "type": "main", "index": 0 }]
+      ]
+    },
+    "💬 Module 3: Messaging Flow & Delegation Process": {
+      "main": [
+        [{ "node": "🛠️ Module 4: Tools in Agent Systems", "type": "main", "index": 0 }]
+      ]
+    },
+    "🛠️ Module 4: Tools in Agent Systems": {
+      "main": [
+        [{ "node": "🧠 Module 5: Supervisor Agent (Live Simulation)", "type": "main", "index": 0 }]
+      ]
+    },
+    "🧠 Module 5: Supervisor Agent (Live Simulation)": {
+      "main": [
+        [{ "node": "🔍 Module 6A: Research Worker Agent", "type": "main", "index": 0 }]
+      ]
+    },
+    "🔍 Module 6A: Research Worker Agent": {
+      "main": [
+        [{ "node": "📝 Module 6B: Summarization Worker Agent", "type": "main", "index": 0 }]
+      ]
+    },
+    "📝 Module 6B: Summarization Worker Agent": {
+      "main": [
+        [{ "node": "✅ Module 6C: Verification Worker Agent", "type": "main", "index": 0 }]
+      ]
+    },
+    "✅ Module 6C: Verification Worker Agent": {
+      "main": [
+        [{ "node": "🔀 Collect Worker Outputs", "type": "main", "index": 0 }]
+      ]
+    },
+    "🔀 Collect Worker Outputs": {
+      "main": [
+        [{ "node": "🎯 Module 7: Supervisor Aggregates Results", "type": "main", "index": 0 }]
+      ]
+    },
+    "🎯 Module 7: Supervisor Aggregates Results": {
+      "main": [
+        [{ "node": "📊 Module 8: Coordination Diagram Walkthrough", "type": "main", "index": 0 }]
+      ]
+    },
+    "📊 Module 8: Coordination Diagram Walkthrough": {
+      "main": [
+        [{ "node": "🎓 Module 9: Hands-On Exercise", "type": "main", "index": 0 }]
+      ]
+    },
+    "🎓 Module 9: Hands-On Exercise": {
+      "main": [
+        [{ "node": "📋 Module 10: Final Report & Key Takeaways", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "staticData": null,
+  "meta": {
+    "templateId": "multi-agent-assignment",
+    "templateCredsSetupCompleted": true,
+    "n8nVersion": "1.0.0"
+  },
+  "pinData": {},
+  "versionId": "1.0.0",
+  "tags": [
+    { "name": "education" },
+    { "name": "multi-agent" },
+    { "name": "AI" },
+    { "name": "assignment" }
+  ]
+}
